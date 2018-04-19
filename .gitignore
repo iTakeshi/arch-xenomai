@@ -1,0 +1,6 @@
+/pkg/
+/src/
+/xenomai-*/
+*.pkg
+*.sign
+*.xz

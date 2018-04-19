@@ -1,50 +1,68 @@
-# Maintainer: Boohbah <boohbah at gmail.com>
+# Maintainer:  Takeshi ITOH <itakeshi.net@gmail.com>
+# Contributor: Boohbah <boohbah at gmail.com>
 # Contributor: Tobias Powalowski <tpowa@archlinux.org>
 # Contributor: Thomas Baechler <thomas@archlinux.org>
 # Contributor: Jonathan Chan <jyc@fastmail.fm>
 # Contributor: misc <tastky@gmail.com>
 # Contributor: NextHendrix <cjones12 at sheffield.ac.uk>
 # Contributor: Shun Terabayashi <shunonymous at gmail.com>
+# Contributor: Brad McCormack <bradmccormack100 at gmail.com>
 
-pkgbase=linux-git
-_srcname=linux
-pkgver=4.16rc6.r0.gc698ca527893
+linux_main=4.9
+linux_patch=90
+linux_ver=${linux_main}.${linux_patch}
+linux_src=linux-${linux_main}
+
+xenomai_main=3
+xenomai_ver=3.0.6.HEAD
+xenomai_src=xenomai-${xenomai_main}
+ipipe_patch_rel=6
+
+pkgbase=linux-xenomai
+pkgver=${linux_ver}_${xenomai_ver}
 pkgrel=1
-arch=('i686' 'x86_64')
-url="http://www.kernel.org/"
+
+arch=('x86_64')
+url="https://www.kernel.org/"
 license=('GPL2')
 makedepends=('xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'libelf')
 options=('!strip')
-source=('git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git'
-        # the main kernel config files
-        'config' 'config.x86_64'
-        # standard config files for mkinitcpio ramdisk
-        "${pkgbase}.preset")
-sha256sums=('SKIP'
-            'becc0c98cff692dee9500f19d38882636caf4c58d5086c7725690a245532f5dc'
-            '89b5b0e0f484050d67dd77627ec087d6dc031188ce6f3f7a0fea8433e409e154'
-            '95fcfdfcb9d540d1a1428ce61e493ddf2c2a8ec96c8573deeadbb4ee407508c7')
+
+validpgpkeys=(
+  'ABAF11C65A2970B130ABE3C479BE3E4300411886'  # Linus Torvalds
+  '647F28654894E3BD457199BE38DBBDC86092693E'  # Greg Kroah-Hartman
+)
+
+source=(
+  https://www.kernel.org/pub/linux/kernel/v4.x/${linux_src}.tar.{xz,sign}
+  https://www.kernel.org/pub/linux/kernel/v4.x/patch-${linux_ver}.{xz,sign}
+  git+https://git.xenomai.org/xenomai-3.git
+  ${pkgbase}.preset
+  ipipe-core-${linux_ver}-x86-${ipipe_patch_rel}.patch
+  config
+)
+
+sha256sums=('029098dcffab74875e086ae970e3828456838da6e0ba22ce3f64ef764f3d7f1a'
+            'SKIP'
+            '56599775e46f6537cb8ec9d2b61a981ab2c4de75f8f333d91b35c98c36aa8b7c'
+            'SKIP'
+            'SKIP'
+            'c2ece55ca37b73bac04871115332a102a3ead10ee3eed01d44db19211cebaa13'
+            '33aa946b60a629efdbb317ba35e30957085fe8fd4843470b22065d46926ca93f'
+            '6a918a646311cda3922a220593b00e5b5a82715f9282a0c994055868a16e7698')
 
 _kernelname=${pkgbase#linux}
 
-pkgver() {
-  cd "${_srcname}"
-
-  git describe --long | sed -E 's/^v//;s/([^-]*-g)/r\1/;s/-/./g;s/\.rc/rc/'
-}
-
 prepare() {
-  cd "${_srcname}"
+  cd "${xenomai_src}"
+  scripts/bootstrap
+  cd ..
 
-  if [ "${CARCH}" = "x86_64" ]; then
-    cat "${srcdir}/config.x86_64" > ./.config
-  else
-    cat "${srcdir}/config" > ./.config
-  fi
+  cd "${linux_src}"
+  patch -p1 -i ../patch-${linux_ver}
+  bash ../${xenomai_src}/scripts/prepare-kernel.sh --ipipe=../ipipe-core-${linux_ver}-x86-${ipipe_patch_rel}.patch
 
-  # set localversion to git commit
-  sed -i "s|CONFIG_LOCALVERSION=.*|CONFIG_LOCALVERSION=\"-${pkgver##*.}\"|g" ./.config
-  sed -i "s|CONFIG_LOCALVERSION_AUTO=.*|CONFIG_LOCALVERSION_AUTO=n|" ./.config
+  cp ../config .config
 
   # don't run depmod on 'make install'. We'll do this ourselves in packaging
   sed -i '2iexit 0' scripts/depmod.sh
@@ -58,12 +76,16 @@ prepare() {
   #make nconfig # new CLI menu for configuration
   #make xconfig # X-based configuration
   #make oldconfig # using old config from previous kernel version
-  make olddefconfig # old config from previous kernel, defaults for new options
+  #make olddefconfig # old config from previous kernel, defaults for new options
   # ... or manually edit .config
+
+  # rewrite configuration
+  yes "" | make config >/dev/null
+
 }
 
 build() {
-  cd "${_srcname}"
+  cd "${linux_src}"
 
   make ${MAKEFLAGS} LOCALVERSION= bzImage modules
 }
@@ -76,7 +98,7 @@ _package() {
   backup=("etc/mkinitcpio.d/${pkgbase}.preset")
   install=linux.install
 
-  cd "${_srcname}"
+  cd "${linux_src}"
 
   KARCH=x86
 
@@ -124,7 +146,7 @@ _package() {
   mv "${pkgdir}/lib" "${pkgdir}/usr/"
 
   # add vmlinux
-  install -D -m644 vmlinux "${pkgdir}/usr/lib/modules/${_kernver}/build/vmlinux" 
+  install -D -m644 vmlinux "${pkgdir}/usr/lib/modules/${_kernver}/build/vmlinux"
 
   # add System.map
   install -D -m644 System.map "${pkgdir}/boot/System.map-${_kernver}"
@@ -136,7 +158,7 @@ _package-headers() {
 
   install -dm755 "${pkgdir}/usr/lib/modules/${_kernver}"
 
-  cd "${_srcname}"
+  cd "${linux_src}"
   install -D -m644 Makefile \
     "${pkgdir}/usr/lib/modules/${_kernver}/build/Makefile"
   install -D -m644 kernel/Makefile \
@@ -250,7 +272,7 @@ _package-docs() {
   pkgdesc="Kernel hackers manual - HTML documentation that comes with the Linux kernel (git version)"
   provides=('linux-docs')
 
-  cd "${_srcname}"
+  cd "${linux_src}"
 
   mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build"
   cp -al Documentation "${pkgdir}/usr/lib/modules/${_kernver}/build"
