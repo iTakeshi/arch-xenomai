@@ -2,7 +2,7 @@
 
 xenomai_main=3
 xenomai_ver=3.0.6.HEAD
-xenomai_src=xenomai-${xenomai_main}
+xenomai_src=xenomai
 
 pkgname=xenomai
 pkgver="${xenomai_ver}"
@@ -13,7 +13,7 @@ url="https://xenomai.org/"
 options=('!strip' '!libtool')
 
 source=(
-  git+https://git.xenomai.org/xenomai-3.git
+  git+https://gitlab.denx.de/Xenomai/xenomai.git
 )
 sha256sums=(
   'SKIP'

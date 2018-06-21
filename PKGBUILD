@@ -15,7 +15,7 @@ linux_src=linux-${linux_main}
 
 xenomai_main=3
 xenomai_ver=3.0.6.HEAD
-xenomai_src=xenomai-${xenomai_main}
+xenomai_src=xenomai
 ipipe_patch_rel=6
 
 pkgbase=linux-xenomai
@@ -36,7 +36,7 @@ validpgpkeys=(
 source=(
   https://www.kernel.org/pub/linux/kernel/v4.x/${linux_src}.tar.{xz,sign}
   https://www.kernel.org/pub/linux/kernel/v4.x/patch-${linux_ver}.{xz,sign}
-  git+https://git.xenomai.org/xenomai-3.git
+  git+https://gitlab.denx.de/Xenomai/xenomai.git
   ${pkgbase}.preset
   ipipe-core-${linux_ver}-x86-${ipipe_patch_rel}.patch
   config
@@ -49,7 +49,7 @@ sha256sums=('029098dcffab74875e086ae970e3828456838da6e0ba22ce3f64ef764f3d7f1a'
             'SKIP'
             'c2ece55ca37b73bac04871115332a102a3ead10ee3eed01d44db19211cebaa13'
             '33aa946b60a629efdbb317ba35e30957085fe8fd4843470b22065d46926ca93f'
-            '6a918a646311cda3922a220593b00e5b5a82715f9282a0c994055868a16e7698')
+            '70b789ecdc31c33dd81a4f5286ee785c732e67e6803eb55aa75c2019889ef1bb')
 
 _kernelname=${pkgbase#linux}
 
