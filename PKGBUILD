@@ -8,10 +8,8 @@
 # Contributor: Shun Terabayashi <shunonymous at gmail.com>
 # Contributor: Brad McCormack <bradmccormack100 at gmail.com>
 
-linux_main=4.9
-linux_patch=90
-linux_ver=${linux_main}.${linux_patch}
-linux_src=linux-${linux_main}
+linux_ver=4.9.90
+linux_src=linux-${linux_ver}
 
 xenomai_main=3
 xenomai_ver=3.0.6.HEAD
@@ -34,39 +32,37 @@ validpgpkeys=(
 )
 
 source=(
-  https://www.kernel.org/pub/linux/kernel/v4.x/${linux_src}.tar.{xz,sign}
-  https://www.kernel.org/pub/linux/kernel/v4.x/patch-${linux_ver}.{xz,sign}
-  git+https://gitlab.denx.de/Xenomai/xenomai.git
+  https://mirrors.edge.kernel.org/pub/linux/kernel/v4.x/linux-${linux_ver}.tar.{xz,sign}
+  git+https://gitlab.denx.de/Xenomai/xenomai.git#commit=35fc6d110
   ${pkgbase}.preset
   ipipe-core-${linux_ver}-x86-${ipipe_patch_rel}.patch
   config
 )
 
-sha256sums=('029098dcffab74875e086ae970e3828456838da6e0ba22ce3f64ef764f3d7f1a'
-            'SKIP'
-            '56599775e46f6537cb8ec9d2b61a981ab2c4de75f8f333d91b35c98c36aa8b7c'
+sha256sums=('1bb0094f97650c7e89a614310b38689718b84ed89300548b5da77bf44d037455'
             'SKIP'
             'SKIP'
             'c2ece55ca37b73bac04871115332a102a3ead10ee3eed01d44db19211cebaa13'
             '33aa946b60a629efdbb317ba35e30957085fe8fd4843470b22065d46926ca93f'
-            '70b789ecdc31c33dd81a4f5286ee785c732e67e6803eb55aa75c2019889ef1bb')
+            '94796bd30fded7f7319a9da5c59bc2f6e9919743b36afa608a38d53be87de82a')
 
 _kernelname=${pkgbase#linux}
 
 prepare() {
-  cd "${xenomai_src}"
+  cd ${srcdir}/${xenomai_src}
+  [ -d build ] && rm -rf build
+  mkdir build
   scripts/bootstrap
-  cd ..
+  bash scripts/prepare-kernel.sh \
+    --linux=../${linux_src} \
+    --ipipe=../ipipe-core-${linux_ver}-x86-${ipipe_patch_rel}.patch \
+    --arch=x86_64 \
+    --verbose
 
-  cd "${linux_src}"
-  patch -p1 -i ../patch-${linux_ver}
-  bash ../${xenomai_src}/scripts/prepare-kernel.sh --ipipe=../ipipe-core-${linux_ver}-x86-${ipipe_patch_rel}.patch
-
+  cd ${srcdir}/${linux_src}
   cp ../config .config
-
   # don't run depmod on 'make install'. We'll do this ourselves in packaging
   sed -i '2iexit 0' scripts/depmod.sh
-
   # get kernel version
   make prepare
 
@@ -85,9 +81,12 @@ prepare() {
 }
 
 build() {
-  cd "${linux_src}"
-
+  cd ${srcdir}/${linux_src}
   make ${MAKEFLAGS} LOCALVERSION= bzImage modules
+
+  cd ${srcdir}/${xenomai_src}/build
+  ../configure --with-core=cobalt --enable-smp --enable-pshared
+  make
 }
 
 _package() {
@@ -283,7 +282,13 @@ _package-docs() {
   rm -f "${pkgdir}/usr/lib/modules/${_kernver}/build/Documentation/DocBook/Makefile"
 }
 
-pkgname=("${pkgbase}" "${pkgbase}-headers" "${pkgbase}-docs")
+_package-xenomai() {
+  cd ${srcdir}/${xenomai_src}/build
+  mkdir -p ${pkgdir}/etc/udev/rules.d
+  make DESTDIR="${pkgdir}" install
+}
+
+pkgname=("${pkgbase}" "${pkgbase}-headers" "${pkgbase}-docs" "${pkgbase}-xenomai")
 for _p in ${pkgname[@]}; do
   eval "package_${_p}() {
     $(declare -f "_package${_p#${pkgbase}}")
