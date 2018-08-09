@@ -58,6 +58,8 @@ prepare() {
     --ipipe=../ipipe-core-${linux_ver}-x86-${ipipe_patch_rel}.patch \
     --arch=x86_64 \
     --verbose
+  cd build
+  ../configure --with-core=cobalt --enable-smp --enable-pshared
 
   cd ${srcdir}/${linux_src}
   cp ../config .config
@@ -85,7 +87,6 @@ build() {
   make ${MAKEFLAGS} LOCALVERSION= bzImage modules
 
   cd ${srcdir}/${xenomai_src}/build
-  ../configure --with-core=cobalt --enable-smp --enable-pshared
   make
 }
 
